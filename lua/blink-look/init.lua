@@ -33,12 +33,12 @@ function M:get_completions(params, callback)
 	}
 
 	local stdout = {}
-	local stderr = {}
 
 	local handle
 	handle = uv.spawn(command[1], {
 		args = vim.list_slice(command, 2),
 		stdio = { nil, uv.new_pipe(false), uv.new_pipe(false) },
+		hide = true,
 	}, function(code)
 		handle:close()
 		if code == 0 then
@@ -55,15 +55,6 @@ function M:get_completions(params, callback)
 		end
 		if data then
 			table.insert(stdout, data)
-		end
-	end)
-
-	uv.read_start(handle.stderr, function(err, data)
-		if err then
-			return
-		end
-		if data then
-			table.insert(stderr, data)
 		end
 	end)
 
