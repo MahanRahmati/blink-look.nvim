@@ -25,45 +25,41 @@ function M.new(opts)
 end
 
 function M:get_completions(params, callback)
-	local command = {
+	local prefix = params.line:sub(1, params.cursor[2]):match("[%w_-]+$") or ""
+
+	if string.len(prefix) < self.opts.min_word_length then
+		callback()
+		return
+	end
+
+	local cmd = {
 		self.opts.rg_path,
 		unpack(self.opts.rg_args),
-		"^" .. params.context.cursor_before_line,
+		"^" .. prefix .. "[\\w-]+$",
 		self.opts.dict_path,
 	}
 
-	local stdout = {}
-
-	local handle
-	handle = uv.spawn(command[1], {
-		args = vim.list_slice(command, 2),
-		stdio = { nil, uv.new_pipe(false), uv.new_pipe(false) },
-		hide = true,
-	}, function(code)
-		handle:close()
-		if code == 0 then
-			local items = words_to_items(stdout)
-			callback({ items = items, isIncomplete = false })
-		else
-			callback({ items = {}, isIncomplete = false })
-		end
-	end)
-
-	uv.read_start(handle.stdout, function(err, data)
-		if err then
+	vim.system(cmd, nil, function(result)
+		if result.code ~= 0 then
+			callback()
 			return
 		end
-		if data then
-			table.insert(stdout, data)
-		end
-	end)
 
-	return function()
-		if handle and not handle:is_closing() then
-			handle:kill(15)
-			handle:close()
+		local words = vim.split(result.stdout, "\n")
+		words = vim.tbl_filter(function(word)
+			return word ~= ""
+		end, words)
+
+		if table.getn(words) > self.opts.max_results then
+			words = vim.list_slice(words, 1, self.opts.max_results)
 		end
-	end
+
+		callback({
+			is_incomplete_forward = false,
+			is_incomplete_backward = false,
+			items = words_to_items(words),
+		})
+	end)
 end
 
 return M
