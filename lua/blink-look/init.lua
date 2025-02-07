@@ -1,5 +1,4 @@
 local default_config = require("blink-look.config")
-local uv = vim.uv
 
 ---@type blink.cmp.Source
 local M = {}
@@ -32,12 +31,12 @@ function M:get_completions(params, callback)
 		return
 	end
 
-	local cmd = {
-		self.opts.rg_path,
-		unpack(self.opts.rg_args),
-		"^" .. prefix .. "[\\w-]+$",
-		self.opts.dict_path,
-	}
+	local cmd = { "look" }
+	if self.opts.ignore_case then
+		table.insert(cmd, "-f")
+	end
+	table.insert(cmd, prefix)
+	table.insert(cmd, self.opts.dict_path)
 
 	vim.system(cmd, nil, function(result)
 		if result.code ~= 0 then
@@ -50,7 +49,7 @@ function M:get_completions(params, callback)
 			return word ~= ""
 		end, words)
 
-		if table.getn(words) > self.opts.max_results then
+		if #words > self.opts.max_results then
 			words = vim.list_slice(words, 1, self.opts.max_results)
 		end
 
